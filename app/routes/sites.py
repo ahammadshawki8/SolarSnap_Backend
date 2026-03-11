@@ -121,7 +121,7 @@ def get_site_panels(site_id):
             'row_number': panel.row_number,
             'column_number': panel.column_number,
             'status': panel.status,
-            'last_inspection': panel.last_inspection.isoformat() if panel.last_inspection else None
+            'last_inspection_date': panel.last_inspection_date.isoformat() if panel.last_inspection_date else None
         } for panel in pagination.items]
         
         return jsonify({

@@ -23,12 +23,13 @@ This guide covers deploying the SolarSnap Backend to Render with PostgreSQL.
    Name: solarsnap-backend
    Environment: Python 3
    Build Command: pip install -r requirements.txt
-   Start Command: gunicorn --config gunicorn.conf.py run:app
+   Start Command: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 30 run:app
    ```
 
 3. **Set Environment Variables**
    Add these in the Render dashboard:
    ```
+   PYTHON_VERSION=3.11.8
    FLASK_ENV=production
    FLASK_DEBUG=False
    SECRET_KEY=<generate-strong-random-key>
@@ -193,6 +194,15 @@ curl -X POST https://your-app.onrender.com/api/v1/auth/login \
 
 ### Common Issues
 
+**PostgreSQL Driver Compatibility Error**
+```
+ImportError: undefined symbol: _PyInterpreterState_Get
+```
+**Solutions:**
+1. **Set Python Version (Recommended)**: Add `PYTHON_VERSION=3.11.8` to environment variables
+2. **Use psycopg3**: Update requirements.txt to use `psycopg[binary]>=3.1.0`
+3. **Use pg8000 (pure Python)**: Replace with `pg8000>=1.30.0` in requirements.txt
+
 **Database Connection Error**
 ```
 sqlalchemy.exc.OperationalError: could not connect to server
@@ -203,7 +213,7 @@ sqlalchemy.exc.OperationalError: could not connect to server
 ```
 ModuleNotFoundError: No module named 'app'
 ```
-**Solution**: Ensure PYTHONPATH includes application directory
+**Solution**: Add `PYTHONPATH=/opt/render/project/src` to environment variables
 
 **Permission Errors**
 ```

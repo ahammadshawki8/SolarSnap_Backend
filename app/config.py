@@ -18,13 +18,23 @@ class Config:
     
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    # Database engine options with better error handling
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
-        'connect_args': {
-            'connect_timeout': 10,
-        } if 'sqlite' in DATABASE_URL else {}
     }
+    
+    # Add PostgreSQL-specific options only if using PostgreSQL
+    if 'postgresql' in DATABASE_URL:
+        SQLALCHEMY_ENGINE_OPTIONS['connect_args'] = {
+            'connect_timeout': 10,
+            'application_name': 'solarsnap-backend'
+        }
+    elif 'sqlite' in DATABASE_URL:
+        SQLALCHEMY_ENGINE_OPTIONS['connect_args'] = {
+            'timeout': 10,
+        }
     
     # JWT
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'dev-jwt-secret')
@@ -95,8 +105,11 @@ class RenderConfig(ProductionConfig):
         ProductionConfig.init_app(app)
         
         # Handle proxy headers
-        from werkzeug.middleware.proxy_fix import ProxyFix
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+        try:
+            from werkzeug.middleware.proxy_fix import ProxyFix
+            app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+        except ImportError:
+            pass  # ProxyFix not available, continue without it
 
 config = {
     'development': DevelopmentConfig,

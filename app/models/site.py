@@ -6,6 +6,7 @@ class Site(db.Model):
     
     site_id = db.Column(db.String(50), primary_key=True)
     site_name = db.Column(db.String(255), nullable=False)
+    company_id = db.Column(db.String(50), nullable=False)
     total_panels = db.Column(db.Integer, default=0)
     rows = db.Column(db.Integer, default=0)
     panels_per_row = db.Column(db.Integer, default=0)
@@ -13,6 +14,7 @@ class Site(db.Model):
     longitude = db.Column(db.Float)
     status = db.Column(db.String(50), default='active')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     panels = db.relationship('Panel', backref='site', lazy='dynamic', cascade='all, delete-orphan')
@@ -29,9 +31,9 @@ class Site(db.Model):
             db.func.date(Inspection.timestamp) == today
         ).all()
         
-        critical = sum(1 for i in inspections_today if i.severity == 'CRITICAL')
-        warnings = sum(1 for i in inspections_today if i.severity == 'WARNING')
-        healthy = sum(1 for i in inspections_today if i.severity == 'HEALTHY')
+        critical = sum(1 for i in inspections_today if i.severity == 'critical')
+        warnings = sum(1 for i in inspections_today if i.severity == 'warning')
+        healthy = sum(1 for i in inspections_today if i.severity == 'healthy')
         uninspected = self.total_panels - len(inspections_today)
         
         return {
@@ -46,12 +48,15 @@ class Site(db.Model):
         data = {
             'siteId': self.site_id,
             'siteName': self.site_name,
+            'companyId': self.company_id,
             'totalPanels': self.total_panels,
             'rows': self.rows,
             'panelsPerRow': self.panels_per_row,
             'latitude': self.latitude,
             'longitude': self.longitude,
-            'status': self.status
+            'status': self.status,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None
         }
         
         if include_stats:
