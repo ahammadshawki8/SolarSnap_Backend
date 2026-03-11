@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Flask
+instance/
+.webassets-cache
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+solarsnap.db
+
+# Environment
+.env
+.venv
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (keep structure but ignore content)
+uploads/*.jpg
+uploads/*.jpeg
+uploads/*.png
+uploads/*.pdf
+uploads/thermal/
+uploads/visual/
+
+# Logs
+*.log
+logs/
+gunicorn.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Production
+*.pid
+*.sock
+
+# Backup files
+*.bak
+*.backup

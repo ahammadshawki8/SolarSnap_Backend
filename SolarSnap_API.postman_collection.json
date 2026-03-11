@@ -1,0 +1,345 @@
+{
+  "info": {
+    "name": "SolarSnap API",
+    "description": "Complete API collection for SolarSnap solar panel inspection system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@test.com\",\n  \"password\": \"password123\",\n  \"fullName\": \"New User\",\n  \"companyId\": \"SOLARTECH-001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('token', jsonData.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"inspector1@solartech.com\",\n  \"password\": \"password123\",\n  \"companyId\": \"SOLARTECH-001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sites",
+      "item": [
+        {
+          "name": "Get All Sites",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sites",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sites"]
+            }
+          }
+        },
+        {
+          "name": "Get Site Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sites/NV-Solar-04",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sites", "NV-Solar-04"]
+            }
+          }
+        },
+        {
+          "name": "Get Site Panels",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sites/NV-Solar-04/panels",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sites", "NV-Solar-04", "panels"]
+            }
+          }
+        },
+        {
+          "name": "Create Site",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"siteId\": \"TEST-Site-01\",\n  \"siteName\": \"Test Solar Farm\",\n  \"totalPanels\": 500,\n  \"rows\": 10,\n  \"panelsPerRow\": 50,\n  \"latitude\": 35.0,\n  \"longitude\": -115.0,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sites",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sites"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inspections",
+      "item": [
+        {
+          "name": "Create Inspection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"siteId\": \"NV-Solar-04\",\n  \"panelId\": \"PNL-A7-0001\",\n  \"temperature\": 45.5,\n  \"deltaTemp\": 12.3,\n  \"severity\": \"WARNING\",\n  \"issueType\": \"hotspot\",\n  \"latitude\": 36.1234,\n  \"longitude\": -115.2345,\n  \"timestamp\": 1710123456000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/inspections",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "inspections"]
+            }
+          }
+        },
+        {
+          "name": "Get Inspections",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inspections?siteId=NV-Solar-04&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "inspections"],
+              "query": [
+                {
+                  "key": "siteId",
+                  "value": "NV-Solar-04"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Inspection Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inspections/insp_1710123456_abc123",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "inspections", "insp_1710123456_abc123"]
+            }
+          }
+        },
+        {
+          "name": "Get Inspections by Severity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inspections?severity=CRITICAL",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "inspections"],
+              "query": [
+                {
+                  "key": "severity",
+                  "value": "CRITICAL"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Inspection Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inspections/statistics?siteId=NV-Solar-04",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "inspections", "statistics"],
+              "query": [
+                {
+                  "key": "siteId",
+                  "value": "NV-Solar-04"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Inspection",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inspections/insp_1710123456_abc123",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "inspections", "insp_1710123456_abc123"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
