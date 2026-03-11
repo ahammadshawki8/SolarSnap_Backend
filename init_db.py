@@ -81,8 +81,7 @@ def seed_data():
                 email=user_info['email'],
                 full_name=user_info['name'],
                 role=user_info['role'],
-                company_id='SOLARTECH-001',
-                is_active=True
+                company_id='SOLARTECH-001'
             )
             user.set_password('password123')
             users.append(user)
