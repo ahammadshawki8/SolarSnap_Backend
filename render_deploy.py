@@ -27,7 +27,8 @@ def post_deploy():
             max_retries = 5
             for attempt in range(max_retries):
                 try:
-                    db.session.execute('SELECT 1')
+                    from sqlalchemy import text
+                    db.session.execute(text('SELECT 1'))
                     print("✅ Database connection successful")
                     break
                 except Exception as e:

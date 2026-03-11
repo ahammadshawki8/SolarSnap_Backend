@@ -86,7 +86,8 @@ def create_app(config_name=None):
         db_status = 'unknown'
         try:
             # Test database connection
-            db.session.execute('SELECT 1')
+            from sqlalchemy import text
+            db.session.execute(text('SELECT 1'))
             db_status = 'connected'
         except Exception as e:
             db_status = f'error: {str(e)[:100]}'

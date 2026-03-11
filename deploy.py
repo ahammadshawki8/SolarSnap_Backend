@@ -18,7 +18,8 @@ def deploy():
     with app.app_context():
         # Test database connection
         try:
-            db.session.execute('SELECT 1')
+            from sqlalchemy import text
+            db.session.execute(text('SELECT 1'))
             print("✅ Database connection successful")
         except Exception as e:
             print(f"❌ Database connection failed: {e}")
