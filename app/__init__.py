@@ -65,7 +65,7 @@ def create_app(config_name=None):
     
     # Register blueprints
     try:
-        from app.routes import auth, sites, inspections, uploads, reports, sync, settings
+        from app.routes import auth, sites, inspections, uploads, reports, sync, settings, admin
         
         app.register_blueprint(auth.bp, url_prefix='/api/v1/auth')
         app.register_blueprint(sites.bp, url_prefix='/api/v1/sites')
@@ -74,6 +74,7 @@ def create_app(config_name=None):
         app.register_blueprint(reports.bp, url_prefix='/api/v1/reports')
         app.register_blueprint(sync.bp, url_prefix='/api/v1/sync')
         app.register_blueprint(settings.bp, url_prefix='/api/v1/settings')
+        app.register_blueprint(admin.bp, url_prefix='/admin')
         
         app.logger.info("All blueprints registered successfully")
         
@@ -127,7 +128,12 @@ def create_app(config_name=None):
                 'uploads': '/api/v1/upload',
                 'reports': '/api/v1/reports',
                 'sync': '/api/v1/sync',
-                'settings': '/api/v1/settings'
+                'settings': '/api/v1/settings',
+                'admin': {
+                    'init_db': '/admin/init-db',
+                    'debug_db': '/admin/debug-db',
+                    'reset_db': '/admin/reset-db (POST only)'
+                }
             }
         }, 200
     
