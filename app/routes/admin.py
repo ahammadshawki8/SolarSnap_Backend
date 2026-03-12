@@ -586,15 +586,7 @@ def fix_site_ids():
                 new_id = id_mapping[site.site_id]
                 old_id = site.site_id
                 
-                # Update panels first (foreign key constraint)
-                panels = Panel.query.filter_by(site_id=old_id).all()
-                for panel in panels:
-                    # Update panel site_id
-                    panel.site_id = new_id
-                    # Update panel_id to match new site
-                    panel.panel_id = panel.panel_id.replace(old_id, new_id)
-                
-                # Update inspections
+                # STEP 1: Update inspections first (they reference panels)
                 inspections = Inspection.query.filter_by(site_id=old_id).all()
                 for inspection in inspections:
                     inspection.site_id = new_id
@@ -602,7 +594,16 @@ def fix_site_ids():
                     if inspection.panel_id:
                         inspection.panel_id = inspection.panel_id.replace(old_id, new_id)
                 
-                # Update site ID
+                # STEP 2: Update panels (they are referenced by inspections)
+                panels = Panel.query.filter_by(site_id=old_id).all()
+                for panel in panels:
+                    # Update panel site_id
+                    panel.site_id = new_id
+                    # Update panel_id to match new site
+                    new_panel_id = panel.panel_id.replace(old_id, new_id)
+                    panel.panel_id = new_panel_id
+                
+                # STEP 3: Update site ID last
                 site.site_id = new_id
                 
                 updated_sites.append(f"{old_id} → {new_id}")
@@ -810,3 +811,388 @@ def demo_status_summary():
         
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+@bp.route('/fix-site-ids-safe', methods=['GET', 'POST'])
+def fix_site_ids_safe():
+    """Safely update site IDs using direct SQL to handle foreign keys"""
+    try:
+        from sqlalchemy import text
+        
+        # Mapping of current IDs to expected IDs
+        id_mapping = {
+            'NV-SOLAR-01': 'NV-Solar-04',
+            'CA-SOLAR-01': 'CA-Solar-01', 
+            'TX-SOLAR-01': 'NV-Solar-03'
+        }
+        
+        updated_sites = []
+        
+        for old_id, new_id in id_mapping.items():
+            # Check if old site exists
+            result = db.session.execute(text("SELECT COUNT(*) FROM sites WHERE site_id = :old_id"), {'old_id': old_id}).scalar()
+            
+            if result > 0:
+                # Step 1: Update inspections first (they reference panels by panel_id)
+                db.session.execute(text("""
+                    UPDATE inspections 
+                    SET site_id = :new_id,
+                        panel_id = REPLACE(panel_id, :old_id, :new_id)
+                    WHERE site_id = :old_id
+                """), {'old_id': old_id, 'new_id': new_id})
+                
+                # Step 2: Update panels (change both site_id and panel_id)
+                db.session.execute(text("""
+                    UPDATE panels 
+                    SET site_id = :new_id,
+                        panel_id = REPLACE(panel_id, :old_id, :new_id)
+                    WHERE site_id = :old_id
+                """), {'old_id': old_id, 'new_id': new_id})
+                
+                # Step 3: Update site
+                db.session.execute(text("""
+                    UPDATE sites 
+                    SET site_id = :new_id
+                    WHERE site_id = :old_id
+                """), {'old_id': old_id, 'new_id': new_id})
+                
+                updated_sites.append(f"{old_id} → {new_id}")
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Site IDs safely updated using SQL',
+            'updates': updated_sites,
+            'note': 'All foreign key references updated correctly'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@bp.route('/reset-and-recreate', methods=['POST'])
+def reset_and_recreate():
+    """Nuclear option: Reset everything and recreate with correct IDs"""
+    try:
+        print("🔥 RESETTING ALL DATA AND RECREATING WITH CORRECT IDs")
+        
+        # Clear all data except users
+        db.session.execute(text("DELETE FROM inspections"))
+        db.session.execute(text("DELETE FROM panels"))
+        db.session.execute(text("DELETE FROM sites"))
+        db.session.commit()
+        
+        # Create sites with correct IDs
+        sites_data = [
+            {
+                'site_id': 'NV-Solar-04',
+                'site_name': 'Nevada Solar Farm 04',
+                'total_panels': 50,
+                'rows': 5,
+                'panels_per_row': 10,
+                'latitude': 36.1234,
+                'longitude': -115.2345
+            },
+            {
+                'site_id': 'CA-Solar-01',
+                'site_name': 'California Solar Farm 01',
+                'total_panels': 40,
+                'rows': 4,
+                'panels_per_row': 10,
+                'latitude': 34.0522,
+                'longitude': -118.2437
+            },
+            {
+                'site_id': 'NV-Solar-03',
+                'site_name': 'Nevada Solar Farm 03',
+                'total_panels': 30,
+                'rows': 3,
+                'panels_per_row': 10,
+                'latitude': 31.9686,
+                'longitude': -99.9018
+            }
+        ]
+        
+        # Create sites
+        for site_data in sites_data:
+            site = Site(
+                site_id=site_data['site_id'],
+                site_name=site_data['site_name'],
+                company_id='SOLARTECH-001',
+                total_panels=site_data['total_panels'],
+                rows=site_data['rows'],
+                panels_per_row=site_data['panels_per_row'],
+                latitude=site_data['latitude'],
+                longitude=site_data['longitude'],
+                status='active'
+            )
+            db.session.add(site)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'All data reset and recreated with correct site IDs',
+            'sites_created': [s['site_id'] for s in sites_data],
+            'next_steps': [
+                'Run /admin/add-panels/<site_id> for each site',
+                'Run /admin/add-inspections/<site_id> for each site',
+                'Run /admin/update-panel-statuses for realistic distribution'
+            ]
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+@bp.route('/complete-demo-reset', methods=['GET', 'POST'])
+def complete_demo_reset():
+    """ONE-CLICK: Complete demo reset and setup with everything"""
+    try:
+        import random
+        from datetime import datetime, timedelta
+        from sqlalchemy import text
+        
+        print("🚀 COMPLETE DEMO RESET - ONE CLICK SETUP")
+        print("=" * 60)
+        
+        # STEP 1: Clear all data except users
+        print("🗑️ Step 1: Clearing existing data...")
+        db.session.execute(text("DELETE FROM inspections"))
+        db.session.execute(text("DELETE FROM panels"))
+        db.session.execute(text("DELETE FROM sites"))
+        db.session.commit()
+        print("✅ Data cleared")
+        
+        # STEP 2: Create sites with correct Android app IDs
+        print("🏭 Step 2: Creating sites with correct IDs...")
+        sites_data = [
+            {
+                'site_id': 'NV-Solar-04',
+                'site_name': 'Nevada Solar Farm 04',
+                'total_panels': 50,
+                'rows': 5,
+                'panels_per_row': 10,
+                'latitude': 36.1234,
+                'longitude': -115.2345
+            },
+            {
+                'site_id': 'CA-Solar-01',
+                'site_name': 'California Solar Farm 01',
+                'total_panels': 40,
+                'rows': 4,
+                'panels_per_row': 10,
+                'latitude': 34.0522,
+                'longitude': -118.2437
+            },
+            {
+                'site_id': 'NV-Solar-03',
+                'site_name': 'Nevada Solar Farm 03',
+                'total_panels': 30,
+                'rows': 3,
+                'panels_per_row': 10,
+                'latitude': 31.9686,
+                'longitude': -99.9018
+            }
+        ]
+        
+        created_sites = []
+        for site_data in sites_data:
+            site = Site(
+                site_id=site_data['site_id'],
+                site_name=site_data['site_name'],
+                company_id='SOLARTECH-001',
+                total_panels=site_data['total_panels'],
+                rows=site_data['rows'],
+                panels_per_row=site_data['panels_per_row'],
+                latitude=site_data['latitude'],
+                longitude=site_data['longitude'],
+                status='active'
+            )
+            db.session.add(site)
+            created_sites.append(site_data)
+        
+        db.session.commit()
+        print(f"✅ Created {len(created_sites)} sites")
+        
+        # STEP 3: Create panels for all sites with realistic status distribution
+        print("⚡ Step 3: Creating panels with realistic status distribution...")
+        all_panels = []
+        
+        for site_data in sites_data:
+            site_id = site_data['site_id']
+            
+            for row in range(1, site_data['rows'] + 1):
+                for col in range(1, site_data['panels_per_row'] + 1):
+                    panel_num = (row - 1) * site_data['panels_per_row'] + col
+                    
+                    # Realistic status distribution
+                    rand = random.random()
+                    if rand < 0.60:  # 60% healthy
+                        status = 'healthy'
+                        last_inspection = datetime.utcnow() - timedelta(hours=random.randint(1, 48))
+                    elif rand < 0.85:  # 25% uninspected
+                        status = 'uninspected'
+                        last_inspection = None
+                    elif rand < 0.95:  # 10% warning
+                        status = 'warning'
+                        last_inspection = datetime.utcnow() - timedelta(hours=random.randint(1, 24))
+                    else:  # 5% critical
+                        status = 'critical'
+                        last_inspection = datetime.utcnow() - timedelta(hours=random.randint(1, 12))
+                    
+                    panel = Panel(
+                        panel_id=f'PNL-{site_id}-{panel_num:03d}',
+                        site_id=site_id,
+                        row_number=row,
+                        column_number=col,
+                        string_number=(col - 1) // 5 + 1,
+                        status=status,
+                        last_inspection_date=last_inspection
+                    )
+                    all_panels.append(panel)
+        
+        # Add panels in batches
+        for i in range(0, len(all_panels), 20):
+            batch = all_panels[i:i+20]
+            for panel in batch:
+                db.session.add(panel)
+            db.session.commit()
+        
+        print(f"✅ Created {len(all_panels)} panels with realistic status distribution")
+        
+        # STEP 4: Create realistic inspections for inspected panels
+        print("📋 Step 4: Creating realistic inspections...")
+        user = User.query.filter_by(email='inspector1@solartech.com').first()
+        
+        if not user:
+            return jsonify({'status': 'error', 'message': 'Test user not found'}), 404
+        
+        inspected_panels = [p for p in all_panels if p.status != 'uninspected']
+        inspections = []
+        issue_types = ['none', 'hotspot', 'cell_crack', 'connection_fault', 'shading', 'soiling', 'diode_failure']
+        
+        for panel in inspected_panels:
+            # Generate realistic data based on panel status
+            ambient_temp = random.uniform(25, 35)
+            
+            if panel.status == 'healthy':
+                severity = 'healthy'
+                issue = 'none'
+                delta_temp = random.uniform(0, 5)
+            elif panel.status == 'warning':
+                severity = 'warning'
+                issue = random.choice(['cell_crack', 'shading', 'soiling'])
+                delta_temp = random.uniform(5, 10)
+            else:  # critical
+                severity = 'critical'
+                issue = random.choice(['hotspot', 'diode_failure', 'connection_fault'])
+                delta_temp = random.uniform(10, 20)
+            
+            panel_temp = ambient_temp + delta_temp
+            
+            # Get site for GPS coordinates
+            site = next(s for s in created_sites if s['site_id'] == panel.site_id)
+            
+            inspection = Inspection(
+                site_id=panel.site_id,
+                panel_id=panel.panel_id,
+                inspector_id=user.user_id,
+                temperature=panel_temp,
+                delta_temp=delta_temp,
+                severity=severity,
+                issue_type=issue,
+                latitude=site['latitude'] + random.uniform(-0.001, 0.001),
+                longitude=site['longitude'] + random.uniform(-0.001, 0.001),
+                thermal_image_url=f'/images/thermal/demo_{random.randint(1,20):03d}.jpg',
+                visual_image_url=f'/images/visual/demo_{random.randint(1,20):03d}.jpg',
+                timestamp=panel.last_inspection_date or datetime.utcnow(),
+                metadata={
+                    'camera_model': 'FLIR ACE',
+                    'ambient_temperature': ambient_temp,
+                    'humidity': random.uniform(30, 80),
+                    'wind_speed': random.uniform(0, 20),
+                    'weather_conditions': random.choice(['clear', 'partly_cloudy', 'overcast']),
+                    'inspector_notes': get_inspection_note(severity, issue)
+                }
+            )
+            inspections.append(inspection)
+        
+        # Add inspections in batches
+        for i in range(0, len(inspections), 15):
+            batch = inspections[i:i+15]
+            for inspection in batch:
+                db.session.add(inspection)
+            db.session.commit()
+        
+        print(f"✅ Created {len(inspections)} realistic inspections")
+        
+        # STEP 5: Final verification and summary
+        print("🔍 Step 5: Final verification...")
+        
+        final_counts = {
+            'users': User.query.count(),
+            'sites': Site.query.count(),
+            'panels': Panel.query.count(),
+            'inspections': Inspection.query.count()
+        }
+        
+        # Panel status distribution
+        panel_distribution = {}
+        for status in ['healthy', 'warning', 'critical', 'uninspected']:
+            count = Panel.query.filter_by(status=status).count()
+            panel_distribution[status] = count
+        
+        # Site breakdown
+        site_breakdown = []
+        for site_data in sites_data:
+            site_panels = Panel.query.filter_by(site_id=site_data['site_id']).count()
+            site_inspections = Inspection.query.filter_by(site_id=site_data['site_id']).count()
+            site_breakdown.append({
+                'site_id': site_data['site_id'],
+                'site_name': site_data['site_name'],
+                'panels': site_panels,
+                'inspections': site_inspections
+            })
+        
+        print("🎉 COMPLETE DEMO SETUP FINISHED!")
+        
+        return jsonify({
+            'status': 'success',
+            'message': '🎉 COMPLETE DEMO SETUP SUCCESSFUL!',
+            'summary': {
+                'total_counts': final_counts,
+                'panel_status_distribution': panel_distribution,
+                'panel_percentages': {
+                    'healthy': f"{(panel_distribution['healthy']/final_counts['panels']*100):.1f}%",
+                    'warning': f"{(panel_distribution['warning']/final_counts['panels']*100):.1f}%",
+                    'critical': f"{(panel_distribution['critical']/final_counts['panels']*100):.1f}%",
+                    'uninspected': f"{(panel_distribution['uninspected']/final_counts['panels']*100):.1f}%"
+                },
+                'sites': site_breakdown
+            },
+            'test_credentials': {
+                'email': 'inspector1@solartech.com',
+                'password': 'password123',
+                'company_id': 'SOLARTECH-001'
+            },
+            'android_app_ready': True,
+            'features_ready': [
+                '✅ Login authentication',
+                '✅ Site selection (dashboard & map)',
+                '✅ Panel status visualization',
+                '✅ Inspection history',
+                '✅ Realistic thermal data',
+                '✅ GPS coordinates',
+                '✅ Issue classification'
+            ]
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Complete demo reset failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
