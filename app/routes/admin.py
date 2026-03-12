@@ -127,6 +127,98 @@ def debug_database():
             'message': str(e)
         }), 500
 
+@bp.route('/quick-init', methods=['GET', 'POST'])
+def quick_init_database():
+    """Quick lightweight database initialization"""
+    try:
+        from sqlalchemy import text
+        
+        print("🚀 Quick database initialization requested")
+        
+        # Create minimal test data only
+        print("👥 Creating minimal test user...")
+        
+        # Check if user already exists
+        existing_user = User.query.filter_by(email='inspector1@solartech.com').first()
+        if existing_user:
+            return jsonify({
+                'status': 'already_exists',
+                'message': 'Test user already exists',
+                'user_email': existing_user.email,
+                'user_id': existing_user.user_id
+            }), 200
+        
+        # Create single test user
+        user = User(
+            email='inspector1@solartech.com',
+            full_name='John Inspector',
+            role='inspector',
+            company_id='SOLARTECH-001'
+        )
+        user.set_password('password123')
+        db.session.add(user)
+        
+        # Create single test site
+        site = Site(
+            site_id='TEST-SITE-01',
+            site_name='Test Solar Farm',
+            company_id='SOLARTECH-001',
+            total_panels=10,
+            rows=2,
+            panels_per_row=5,
+            latitude=36.1234,
+            longitude=-115.2345,
+            status='active'
+        )
+        db.session.add(site)
+        
+        # Create just 10 test panels
+        for i in range(1, 11):
+            panel = Panel(
+                panel_id=f'PNL-TEST-{i:04d}',
+                site_id='TEST-SITE-01',
+                row_number=(i-1) // 5 + 1,
+                column_number=(i-1) % 5 + 1,
+                string_number=1,
+                status='healthy'
+            )
+            db.session.add(panel)
+        
+        # Commit all at once
+        db.session.commit()
+        
+        # Verify
+        final_counts = {
+            'users': User.query.count(),
+            'sites': Site.query.count(),
+            'panels': Panel.query.count(),
+            'inspections': Inspection.query.count()
+        }
+        
+        print(f"✅ Quick initialization complete: {final_counts}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Quick database initialization completed',
+            'counts': final_counts,
+            'test_credentials': {
+                'email': 'inspector1@solartech.com',
+                'password': 'password123',
+                'company_id': 'SOLARTECH-001'
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Quick init failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
 @bp.route('/reset-db', methods=['POST'])
 def reset_database():
     """Force reset database (POST only for safety)"""
@@ -164,4 +256,48 @@ def reset_database():
         return jsonify({
             'status': 'error',
             'message': str(e)
+        }), 500
+
+@bp.route('/test-login', methods=['GET', 'POST'])
+def test_login():
+    """Test login functionality with detailed debugging"""
+    try:
+        # Get the test user
+        test_user = User.query.filter_by(email='inspector1@solartech.com').first()
+        
+        if not test_user:
+            return jsonify({
+                'status': 'error',
+                'message': 'Test user not found',
+                'all_users': [u.email for u in User.query.all()]
+            }), 404
+        
+        # Test password verification
+        password_test = test_user.check_password('password123')
+        
+        # Try creating JWT token
+        try:
+            from flask_jwt_extended import create_access_token
+            token = create_access_token(identity=test_user.user_id)
+            token_test = True
+        except Exception as e:
+            token_test = f"JWT Error: {e}"
+        
+        return jsonify({
+            'status': 'success',
+            'user_found': True,
+            'user_email': test_user.email,
+            'user_id': test_user.user_id,
+            'company_id': test_user.company_id,
+            'password_hash_exists': bool(test_user.password_hash),
+            'password_verification': password_test,
+            'jwt_token_creation': token_test,
+            'user_dict': test_user.to_dict()
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'traceback': str(e)
         }), 500
