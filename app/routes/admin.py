@@ -565,3 +565,57 @@ def complete_demo_setup():
         
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+@bp.route('/fix-site-ids', methods=['GET', 'POST'])
+def fix_site_ids():
+    """Update site IDs to match what the Android app expects"""
+    try:
+        # Get current sites
+        current_sites = Site.query.all()
+        
+        # Mapping of current IDs to expected IDs
+        id_mapping = {
+            'NV-SOLAR-01': 'NV-Solar-04',
+            'CA-SOLAR-01': 'CA-Solar-01', 
+            'TX-SOLAR-01': 'NV-Solar-03'  # Map Texas to the third expected site
+        }
+        
+        updated_sites = []
+        
+        for site in current_sites:
+            if site.site_id in id_mapping:
+                new_id = id_mapping[site.site_id]
+                old_id = site.site_id
+                
+                # Update panels first (foreign key constraint)
+                panels = Panel.query.filter_by(site_id=old_id).all()
+                for panel in panels:
+                    # Update panel site_id
+                    panel.site_id = new_id
+                    # Update panel_id to match new site
+                    panel.panel_id = panel.panel_id.replace(old_id, new_id)
+                
+                # Update inspections
+                inspections = Inspection.query.filter_by(site_id=old_id).all()
+                for inspection in inspections:
+                    inspection.site_id = new_id
+                    # Update panel_id reference in inspections
+                    if inspection.panel_id:
+                        inspection.panel_id = inspection.panel_id.replace(old_id, new_id)
+                
+                # Update site ID
+                site.site_id = new_id
+                
+                updated_sites.append(f"{old_id} → {new_id}")
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Site IDs updated to match Android app expectations',
+            'updates': updated_sites,
+            'expected_sites': list(id_mapping.values())
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
