@@ -619,3 +619,194 @@ def fix_site_ids():
     except Exception as e:
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
+@bp.route('/update-panel-statuses', methods=['GET', 'POST'])
+def update_panel_statuses():
+    """Update panel statuses to realistic distribution for testing"""
+    try:
+        import random
+        from datetime import datetime, timedelta
+        
+        # Get all panels
+        panels = Panel.query.all()
+        
+        if not panels:
+            return jsonify({'status': 'error', 'message': 'No panels found'}), 404
+        
+        # Realistic distribution for solar farm testing
+        # 60% healthy (green), 25% uninspected (gray), 10% warning (orange), 5% critical (red)
+        
+        updated_panels = []
+        
+        for i, panel in enumerate(panels):
+            rand = random.random()
+            
+            if rand < 0.60:  # 60% healthy (inspected, no issues)
+                panel.status = 'healthy'
+                panel.last_inspection_date = datetime.utcnow() - timedelta(hours=random.randint(1, 48))
+            elif rand < 0.85:  # 25% uninspected (not inspected yet)
+                panel.status = 'uninspected'
+                panel.last_inspection_date = None
+            elif rand < 0.95:  # 10% warning (minor issues)
+                panel.status = 'warning'
+                panel.last_inspection_date = datetime.utcnow() - timedelta(hours=random.randint(1, 24))
+            else:  # 5% critical (major issues)
+                panel.status = 'critical'
+                panel.last_inspection_date = datetime.utcnow() - timedelta(hours=random.randint(1, 12))
+            
+            updated_panels.append(panel.status)
+        
+        db.session.commit()
+        
+        # Count final distribution
+        status_counts = {
+            'healthy': updated_panels.count('healthy'),
+            'warning': updated_panels.count('warning'),
+            'critical': updated_panels.count('critical'),
+            'uninspected': updated_panels.count('uninspected')
+        }
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Panel statuses updated with realistic distribution',
+            'total_panels': len(panels),
+            'distribution': status_counts,
+            'percentages': {
+                'healthy': f"{(status_counts['healthy']/len(panels)*100):.1f}%",
+                'warning': f"{(status_counts['warning']/len(panels)*100):.1f}%",
+                'critical': f"{(status_counts['critical']/len(panels)*100):.1f}%",
+                'uninspected': f"{(status_counts['uninspected']/len(panels)*100):.1f}%"
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@bp.route('/update-inspections-for-status', methods=['GET', 'POST'])
+def update_inspections_for_status():
+    """Update existing inspections to match panel statuses"""
+    try:
+        import random
+        from datetime import datetime, timedelta
+        
+        # Get all inspections
+        inspections = Inspection.query.all()
+        
+        updated_inspections = []
+        
+        for inspection in inspections:
+            # Get the panel for this inspection
+            panel = Panel.query.get(inspection.panel_id)
+            
+            if panel:
+                # Update inspection severity to match panel status
+                if panel.status == 'healthy':
+                    inspection.severity = 'healthy'
+                    inspection.issue_type = 'none'
+                    inspection.delta_temp = random.uniform(0, 5)
+                elif panel.status == 'warning':
+                    inspection.severity = 'warning'
+                    inspection.issue_type = random.choice(['cell_crack', 'shading', 'soiling'])
+                    inspection.delta_temp = random.uniform(5, 10)
+                elif panel.status == 'critical':
+                    inspection.severity = 'critical'
+                    inspection.issue_type = random.choice(['hotspot', 'diode_failure', 'connection_fault'])
+                    inspection.delta_temp = random.uniform(10, 20)
+                
+                # Update temperature based on delta_temp
+                ambient_temp = random.uniform(25, 35)
+                inspection.temperature = ambient_temp + inspection.delta_temp
+                
+                # Update metadata
+                if inspection.metadata:
+                    inspection.metadata['ambient_temperature'] = ambient_temp
+                    inspection.metadata['inspector_notes'] = get_inspection_note(inspection.severity, inspection.issue_type)
+                
+                updated_inspections.append(inspection.severity)
+        
+        db.session.commit()
+        
+        # Count final distribution
+        severity_counts = {
+            'healthy': updated_inspections.count('healthy'),
+            'warning': updated_inspections.count('warning'),
+            'critical': updated_inspections.count('critical')
+        }
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Inspections updated to match panel statuses',
+            'total_inspections': len(inspections),
+            'severity_distribution': severity_counts
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+def get_inspection_note(severity, issue_type):
+    """Generate realistic inspection notes"""
+    notes = {
+        'healthy': [
+            'Panel operating within normal parameters',
+            'No thermal anomalies detected',
+            'Excellent panel condition',
+            'Normal temperature distribution'
+        ],
+        'warning': {
+            'cell_crack': 'Minor cell cracking observed, monitor for progression',
+            'shading': 'Partial shading detected, check for obstructions',
+            'soiling': 'Panel surface requires cleaning, reduced efficiency'
+        },
+        'critical': {
+            'hotspot': 'Significant hotspot detected, immediate attention required',
+            'diode_failure': 'Bypass diode failure suspected, electrical inspection needed',
+            'connection_fault': 'Connection issue detected, check wiring and terminals'
+        }
+    }
+    
+    if severity == 'healthy':
+        return random.choice(notes['healthy'])
+    else:
+        return notes[severity].get(issue_type, f'{severity.title()} issue detected')
+
+@bp.route('/demo-status-summary', methods=['GET'])
+def demo_status_summary():
+    """Get summary of current demo data status"""
+    try:
+        # Count panels by status
+        panel_counts = {}
+        for status in ['healthy', 'warning', 'critical', 'uninspected']:
+            count = Panel.query.filter_by(status=status).count()
+            panel_counts[status] = count
+        
+        # Count inspections by severity
+        inspection_counts = {}
+        for severity in ['healthy', 'warning', 'critical']:
+            count = Inspection.query.filter_by(severity=severity).count()
+            inspection_counts[severity] = count
+        
+        # Get site info
+        sites = Site.query.all()
+        site_info = []
+        for site in sites:
+            site_panels = Panel.query.filter_by(site_id=site.site_id).count()
+            site_inspections = Inspection.query.filter_by(site_id=site.site_id).count()
+            site_info.append({
+                'site_id': site.site_id,
+                'site_name': site.site_name,
+                'panels': site_panels,
+                'inspections': site_inspections
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'panel_status_distribution': panel_counts,
+            'inspection_severity_distribution': inspection_counts,
+            'sites': site_info,
+            'total_panels': sum(panel_counts.values()),
+            'total_inspections': sum(inspection_counts.values())
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
