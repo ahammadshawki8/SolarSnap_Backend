@@ -127,16 +127,11 @@ def debug_database():
             'message': str(e)
         }), 500
 
-@bp.route('/quick-init', methods=['GET', 'POST'])
-def quick_init_database():
-    """Quick lightweight database initialization"""
+@bp.route('/minimal-init', methods=['GET', 'POST'])
+def minimal_init():
+    """Ultra minimal - just create one user for login testing"""
     try:
-        from sqlalchemy import text
-        
-        print("🚀 Quick database initialization requested")
-        
-        # Create minimal test data only
-        print("👥 Creating minimal test user...")
+        print("🚀 MINIMAL initialization - just one user")
         
         # Check if user already exists
         existing_user = User.query.filter_by(email='inspector1@solartech.com').first()
@@ -145,10 +140,10 @@ def quick_init_database():
                 'status': 'already_exists',
                 'message': 'Test user already exists',
                 'user_email': existing_user.email,
-                'user_id': existing_user.user_id
+                'can_login': True
             }), 200
         
-        # Create single test user
+        # Create ONLY the test user - nothing else
         user = User(
             email='inspector1@solartech.com',
             full_name='John Inspector',
@@ -157,50 +152,14 @@ def quick_init_database():
         )
         user.set_password('password123')
         db.session.add(user)
-        
-        # Create single test site
-        site = Site(
-            site_id='TEST-SITE-01',
-            site_name='Test Solar Farm',
-            company_id='SOLARTECH-001',
-            total_panels=10,
-            rows=2,
-            panels_per_row=5,
-            latitude=36.1234,
-            longitude=-115.2345,
-            status='active'
-        )
-        db.session.add(site)
-        
-        # Create just 10 test panels
-        for i in range(1, 11):
-            panel = Panel(
-                panel_id=f'PNL-TEST-{i:04d}',
-                site_id='TEST-SITE-01',
-                row_number=(i-1) // 5 + 1,
-                column_number=(i-1) % 5 + 1,
-                string_number=1,
-                status='healthy'
-            )
-            db.session.add(panel)
-        
-        # Commit all at once
         db.session.commit()
         
-        # Verify
-        final_counts = {
-            'users': User.query.count(),
-            'sites': Site.query.count(),
-            'panels': Panel.query.count(),
-            'inspections': Inspection.query.count()
-        }
-        
-        print(f"✅ Quick initialization complete: {final_counts}")
+        print("✅ Single user created successfully")
         
         return jsonify({
             'status': 'success',
-            'message': 'Quick database initialization completed',
-            'counts': final_counts,
+            'message': 'Minimal user created - login should work now',
+            'user_created': True,
             'test_credentials': {
                 'email': 'inspector1@solartech.com',
                 'password': 'password123',
@@ -210,13 +169,10 @@ def quick_init_database():
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Quick init failed: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Minimal init failed: {e}")
         return jsonify({
             'status': 'error',
-            'message': str(e),
-            'traceback': traceback.format_exc()
+            'message': str(e)
         }), 500
 
 @bp.route('/reset-db', methods=['POST'])
@@ -300,4 +256,54 @@ def test_login():
             'status': 'error',
             'message': str(e),
             'traceback': str(e)
+        }), 500
+
+@bp.route('/sql-init', methods=['GET', 'POST'])
+def sql_init():
+    """Direct SQL initialization - fastest possible"""
+    try:
+        from sqlalchemy import text
+        import bcrypt
+        
+        print("🚀 Direct SQL initialization")
+        
+        # Check if user exists
+        result = db.session.execute(text("SELECT COUNT(*) FROM users WHERE email = 'inspector1@solartech.com'")).scalar()
+        
+        if result > 0:
+            return jsonify({
+                'status': 'already_exists',
+                'message': 'User already exists via SQL check'
+            }), 200
+        
+        # Hash password
+        password_hash = bcrypt.hashpw('password123'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        # Direct SQL insert - fastest possible
+        db.session.execute(text("""
+            INSERT INTO users (email, password_hash, full_name, role, company_id, created_at)
+            VALUES ('inspector1@solartech.com', :password_hash, 'John Inspector', 'inspector', 'SOLARTECH-001', NOW())
+        """), {'password_hash': password_hash})
+        
+        db.session.commit()
+        
+        print("✅ Direct SQL user creation successful")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'User created via direct SQL - login should work',
+            'method': 'direct_sql',
+            'test_credentials': {
+                'email': 'inspector1@solartech.com',
+                'password': 'password123',
+                'company_id': 'SOLARTECH-001'
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ SQL init failed: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
         }), 500
