@@ -307,3 +307,261 @@ def sql_init():
             'status': 'error',
             'message': str(e)
         }), 500
+
+@bp.route('/add-sites', methods=['GET', 'POST'])
+def add_demo_sites():
+    """Add demo sites (small batch)"""
+    try:
+        # Check if sites already exist
+        existing_sites = Site.query.count()
+        if existing_sites > 0:
+            return jsonify({
+                'status': 'already_exists',
+                'message': f'{existing_sites} sites already exist'
+            }), 200
+        
+        # Create 3 demo sites
+        sites = [
+            Site(
+                site_id='NV-SOLAR-01',
+                site_name='Nevada Solar Farm 01',
+                company_id='SOLARTECH-001',
+                total_panels=50,  # Small number
+                rows=5,
+                panels_per_row=10,
+                latitude=36.1234,
+                longitude=-115.2345,
+                status='active'
+            ),
+            Site(
+                site_id='CA-SOLAR-01',
+                site_name='California Solar Farm 01',
+                company_id='SOLARTECH-001',
+                total_panels=40,
+                rows=4,
+                panels_per_row=10,
+                latitude=34.0522,
+                longitude=-118.2437,
+                status='active'
+            ),
+            Site(
+                site_id='TX-SOLAR-01',
+                site_name='Texas Solar Farm 01',
+                company_id='SOLARTECH-001',
+                total_panels=30,
+                rows=3,
+                panels_per_row=10,
+                latitude=31.9686,
+                longitude=-99.9018,
+                status='active'
+            )
+        ]
+        
+        for site in sites:
+            db.session.add(site)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Demo sites created',
+            'sites_created': len(sites),
+            'total_panels_planned': sum(s.total_panels for s in sites)
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@bp.route('/add-panels/<site_id>', methods=['GET', 'POST'])
+def add_demo_panels(site_id):
+    """Add demo panels for a specific site"""
+    try:
+        # Get the site
+        site = Site.query.get(site_id)
+        if not site:
+            return jsonify({'status': 'error', 'message': 'Site not found'}), 404
+        
+        # Check if panels already exist for this site
+        existing_panels = Panel.query.filter_by(site_id=site_id).count()
+        if existing_panels > 0:
+            return jsonify({
+                'status': 'already_exists',
+                'message': f'{existing_panels} panels already exist for {site_id}'
+            }), 200
+        
+        # Create panels for this site
+        panels = []
+        for row in range(1, site.rows + 1):
+            for col in range(1, site.panels_per_row + 1):
+                panel_num = (row - 1) * site.panels_per_row + col
+                panel = Panel(
+                    panel_id=f'PNL-{site_id}-{panel_num:03d}',
+                    site_id=site_id,
+                    row_number=row,
+                    column_number=col,
+                    string_number=(col - 1) // 5 + 1,
+                    status='healthy'
+                )
+                panels.append(panel)
+        
+        # Add in batches of 20 to avoid memory issues
+        for i in range(0, len(panels), 20):
+            batch = panels[i:i+20]
+            for panel in batch:
+                db.session.add(panel)
+            db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Panels created for {site_id}',
+            'panels_created': len(panels),
+            'site_name': site.site_name
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@bp.route('/add-inspections/<site_id>', methods=['GET', 'POST'])
+def add_demo_inspections(site_id):
+    """Add demo inspections for a site"""
+    try:
+        import random
+        from datetime import datetime, timedelta
+        
+        # Get site and user
+        site = Site.query.get(site_id)
+        user = User.query.filter_by(email='inspector1@solartech.com').first()
+        
+        if not site or not user:
+            return jsonify({'status': 'error', 'message': 'Site or user not found'}), 404
+        
+        # Check existing inspections
+        existing_inspections = Inspection.query.filter_by(site_id=site_id).count()
+        if existing_inspections > 0:
+            return jsonify({
+                'status': 'already_exists',
+                'message': f'{existing_inspections} inspections already exist for {site_id}'
+            }), 200
+        
+        # Get some panels from this site
+        panels = Panel.query.filter_by(site_id=site_id).limit(15).all()
+        
+        if not panels:
+            return jsonify({'status': 'error', 'message': 'No panels found for this site'}), 404
+        
+        # Create sample inspections
+        inspections = []
+        issue_types = ['none', 'hotspot', 'cell_crack', 'connection_fault', 'shading']
+        
+        for i, panel in enumerate(panels):
+            # Generate realistic data
+            ambient_temp = random.uniform(25, 35)
+            panel_temp = ambient_temp + random.uniform(5, 25)
+            delta_temp = random.uniform(0, 15)
+            
+            # Determine severity
+            if delta_temp > 10:
+                severity = 'critical'
+                issue = random.choice(['hotspot', 'connection_fault'])
+            elif delta_temp > 5:
+                severity = 'warning'
+                issue = random.choice(['cell_crack', 'shading'])
+            else:
+                severity = 'healthy'
+                issue = 'none'
+            
+            inspection = Inspection(
+                site_id=site_id,
+                panel_id=panel.panel_id,
+                inspector_id=user.user_id,
+                temperature=panel_temp,
+                delta_temp=delta_temp,
+                severity=severity,
+                issue_type=issue,
+                latitude=site.latitude + random.uniform(-0.001, 0.001),
+                longitude=site.longitude + random.uniform(-0.001, 0.001),
+                thermal_image_url=f'/images/thermal/demo_{i+1:03d}.jpg',
+                visual_image_url=f'/images/visual/demo_{i+1:03d}.jpg',
+                timestamp=datetime.utcnow() - timedelta(hours=random.randint(1, 72)),
+                metadata={
+                    'camera_model': 'FLIR ACE',
+                    'ambient_temperature': ambient_temp,
+                    'weather': 'clear'
+                }
+            )
+            inspections.append(inspection)
+        
+        # Add inspections
+        for inspection in inspections:
+            db.session.add(inspection)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Demo inspections created for {site_id}',
+            'inspections_created': len(inspections),
+            'site_name': site.site_name
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@bp.route('/demo-setup', methods=['GET', 'POST'])
+def complete_demo_setup():
+    """Complete demo setup guide"""
+    try:
+        # Check current state
+        users = User.query.count()
+        sites = Site.query.count()
+        panels = Panel.query.count()
+        inspections = Inspection.query.count()
+        
+        setup_steps = []
+        
+        if users == 0:
+            setup_steps.append("1. Run /admin/minimal-init first")
+        else:
+            setup_steps.append("✅ Users ready")
+        
+        if sites == 0:
+            setup_steps.append("2. Run /admin/add-sites")
+        else:
+            setup_steps.append("✅ Sites ready")
+        
+        if panels == 0 and sites > 0:
+            site_list = [s.site_id for s in Site.query.all()]
+            setup_steps.append(f"3. Run /admin/add-panels/<site_id> for: {', '.join(site_list)}")
+        else:
+            setup_steps.append("✅ Panels ready")
+        
+        if inspections == 0 and panels > 0:
+            site_list = [s.site_id for s in Site.query.all()]
+            setup_steps.append(f"4. Run /admin/add-inspections/<site_id> for: {', '.join(site_list)}")
+        else:
+            setup_steps.append("✅ Inspections ready")
+        
+        return jsonify({
+            'status': 'info',
+            'message': 'Demo setup guide',
+            'current_counts': {
+                'users': users,
+                'sites': sites,
+                'panels': panels,
+                'inspections': inspections
+            },
+            'setup_steps': setup_steps,
+            'available_endpoints': [
+                '/admin/minimal-init',
+                '/admin/add-sites',
+                '/admin/add-panels/<site_id>',
+                '/admin/add-inspections/<site_id>',
+                '/admin/demo-setup (this guide)'
+            ]
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
