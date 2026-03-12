@@ -485,7 +485,7 @@ def add_demo_inspections(site_id):
                 thermal_image_url=f'/images/thermal/demo_{i+1:03d}.jpg',
                 visual_image_url=f'/images/visual/demo_{i+1:03d}.jpg',
                 timestamp=datetime.utcnow() - timedelta(hours=random.randint(1, 72)),
-                metadata={
+                inspection_metadata={
                     'camera_model': 'FLIR ACE',
                     'ambient_temperature': ambient_temp,
                     'weather': 'clear'
@@ -719,9 +719,9 @@ def update_inspections_for_status():
                 inspection.temperature = ambient_temp + inspection.delta_temp
                 
                 # Update metadata
-                if inspection.metadata:
-                    inspection.metadata['ambient_temperature'] = ambient_temp
-                    inspection.metadata['inspector_notes'] = get_inspection_note(inspection.severity, inspection.issue_type)
+                if inspection.inspection_metadata:
+                    inspection.inspection_metadata['ambient_temperature'] = ambient_temp
+                    inspection.inspection_metadata['inspector_notes'] = get_inspection_note(inspection.severity, inspection.issue_type)
                 
                 updated_inspections.append(inspection.severity)
         
@@ -1107,7 +1107,7 @@ def complete_demo_reset():
                 thermal_image_url=f'/images/thermal/demo_{random.randint(1,20):03d}.jpg',
                 visual_image_url=f'/images/visual/demo_{random.randint(1,20):03d}.jpg',
                 timestamp=panel.last_inspection_date or datetime.utcnow(),
-                metadata={
+                inspection_metadata={
                     'camera_model': 'FLIR ACE',
                     'ambient_temperature': ambient_temp,
                     'humidity': random.uniform(30, 80),

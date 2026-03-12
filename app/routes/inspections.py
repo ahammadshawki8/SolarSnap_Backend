@@ -60,7 +60,7 @@ def create_inspection():
             longitude=data.get('longitude'),
             thermal_image_url=data.get('thermalImageId'),
             visual_image_url=data.get('visualImageId'),
-            metadata=data.get('metadata', {}),
+            inspection_metadata=data.get('metadata', {}),
             timestamp=timestamp
         )
         
