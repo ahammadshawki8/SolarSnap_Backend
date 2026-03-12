@@ -24,6 +24,15 @@ class Inspection(db.Model):
     
     inspection_metadata = db.Column(db.JSON)  # Renamed from 'metadata' to avoid conflict
     
+    # Property to access metadata with the expected name
+    @property
+    def metadata(self):
+        return self.inspection_metadata
+    
+    @metadata.setter
+    def metadata(self, value):
+        self.inspection_metadata = value
+    
     timestamp = db.Column(db.DateTime, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

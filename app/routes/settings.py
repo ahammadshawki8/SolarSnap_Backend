@@ -137,10 +137,8 @@ def update_user_settings():
             current_settings['connectivity'].update(data['connectivity'])
         
         # Save updated settings
-        # Note: This requires adding a 'settings' column to User model
-        # For now, we'll simulate success
-        # In production: user.settings = json.dumps(current_settings)
-        # db.session.commit()
+        user.settings = json.dumps(current_settings)
+        db.session.commit()
         
         return jsonify({
             'success': True,

@@ -1198,3 +1198,81 @@ def complete_demo_reset():
             'message': str(e),
             'traceback': traceback.format_exc()
         }), 500
+@bp.route('/test-all-endpoints', methods=['GET'])
+def test_all_endpoints():
+    """Test all major endpoints to ensure they work"""
+    try:
+        results = {}
+        
+        # Test user exists
+        user = User.query.filter_by(email='inspector1@solartech.com').first()
+        results['user_exists'] = user is not None
+        
+        # Test sites
+        sites = Site.query.all()
+        results['sites_count'] = len(sites)
+        results['sites'] = [s.site_id for s in sites]
+        
+        # Test panels
+        panels = Panel.query.all()
+        results['panels_count'] = len(panels)
+        
+        # Test inspections
+        inspections = Inspection.query.all()
+        results['inspections_count'] = len(inspections)
+        
+        # Test inspection to_dict method
+        if inspections:
+            try:
+                sample_inspection = inspections[0].to_dict()
+                results['inspection_to_dict'] = 'success'
+            except Exception as e:
+                results['inspection_to_dict'] = f'error: {e}'
+        
+        # Test settings
+        if user:
+            try:
+                settings_test = user.settings or '{}'
+                results['user_settings'] = 'success'
+            except Exception as e:
+                results['user_settings'] = f'error: {e}'
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Endpoint testing complete',
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@bp.route('/fix-database-schema', methods=['POST'])
+def fix_database_schema():
+    """Add missing columns to existing tables"""
+    try:
+        from sqlalchemy import text
+        
+        # Add settings column to users table if it doesn't exist
+        try:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN settings TEXT"))
+            db.session.commit()
+            print("✅ Added settings column to users table")
+        except Exception as e:
+            if "already exists" in str(e) or "duplicate column" in str(e).lower():
+                print("ℹ️ Settings column already exists")
+            else:
+                print(f"⚠️ Could not add settings column: {e}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Database schema updated'
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500

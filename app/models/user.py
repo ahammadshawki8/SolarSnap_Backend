@@ -11,6 +11,7 @@ class User(db.Model):
     full_name = db.Column(db.String(255))
     role = db.Column(db.String(50), default='Field Engineer')
     company_id = db.Column(db.String(100), nullable=False, index=True)
+    settings = db.Column(db.Text)  # JSON settings storage
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
