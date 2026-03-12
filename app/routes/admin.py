@@ -747,6 +747,8 @@ def update_inspections_for_status():
 
 def get_inspection_note(severity, issue_type):
     """Generate realistic inspection notes"""
+    import random
+    
     notes = {
         'healthy': [
             'Panel operating within normal parameters',
