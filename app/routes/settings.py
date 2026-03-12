@@ -54,12 +54,12 @@ COMPANY_SETTINGS = {
 
 
 @bp.route('/user', methods=['GET'])
-@jwt_required()
+# @jwt_required()  # TODO: Re-enable authentication after frontend auth is implemented
 def get_user_settings():
     """Get user-specific settings"""
     try:
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
+        # Since JWT is disabled, get the test user
+        user = User.query.filter_by(email='inspector1@solartech.com').first()
         
         if not user:
             return jsonify({
@@ -93,12 +93,12 @@ def get_user_settings():
 
 
 @bp.route('/user', methods=['PUT'])
-@jwt_required()
+# @jwt_required()  # TODO: Re-enable authentication after frontend auth is implemented
 def update_user_settings():
     """Update user settings"""
     try:
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
+        # Since JWT is disabled, get the test user
+        user = User.query.filter_by(email='inspector1@solartech.com').first()
         
         if not user:
             return jsonify({
@@ -154,13 +154,12 @@ def update_user_settings():
 
 
 @bp.route('/company/<company_id>', methods=['GET'])
-@jwt_required()
+# @jwt_required()  # TODO: Re-enable authentication after frontend auth is implemented
 def get_company_settings(company_id):
     """Get company-wide default settings"""
     try:
-        # Verify user has access to this company
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
+        # Since JWT is disabled, get the test user
+        user = User.query.filter_by(email='inspector1@solartech.com').first()
         
         if not user:
             return jsonify({

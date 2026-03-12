@@ -12,7 +12,7 @@ import csv
 bp = Blueprint('reports', __name__)
 
 @bp.route('/site/<site_id>', methods=['GET'])
-@jwt_required()
+# @jwt_required()  # TODO: Re-enable authentication after frontend auth is implemented
 def get_site_report(site_id):
     """Generate site inspection summary"""
     try:
@@ -99,7 +99,7 @@ def get_site_report(site_id):
 
 
 @bp.route('/fault', methods=['GET'])
-@jwt_required()
+# @jwt_required()  # TODO: Re-enable authentication after frontend auth is implemented
 def get_fault_report():
     """Fault-specific report"""
     try:
@@ -163,7 +163,7 @@ def get_fault_report():
 
 
 @bp.route('/maintenance', methods=['GET'])
-@jwt_required()
+# @jwt_required()  # TODO: Re-enable authentication after frontend auth is implemented
 def get_maintenance_report():
     """Maintenance action recommendations"""
     try:
@@ -237,7 +237,7 @@ def get_maintenance_report():
 
 
 @bp.route('/export', methods=['POST'])
-@jwt_required()
+# @jwt_required()  # TODO: Re-enable authentication after frontend auth is implemented
 def export_report():
     """Export report as PDF/CSV and optionally email"""
     try:
@@ -338,7 +338,7 @@ def export_report():
 
 
 @bp.route('/temperature-distribution', methods=['GET'])
-@jwt_required()
+# @jwt_required()  # TODO: Re-enable authentication after frontend auth is implemented
 def get_temperature_distribution():
     """Get temperature distribution for charts"""
     try:
